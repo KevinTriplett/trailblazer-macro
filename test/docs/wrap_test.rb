@@ -342,7 +342,7 @@ This one is mostly to show how one could wrap steps in a transaction
   class WrapWithTransactionTest < Minitest::Spec
     Memo = Module.new
 
-    module Sequel
+    module ActiveRecord
       def self.transaction
         end_event, (ctx, flow_options) = yield
       end
@@ -351,7 +351,10 @@ This one is mostly to show how one could wrap steps in a transaction
     #:transaction-handler
     class MyTransaction
       def self.call((ctx, flow_options), *, &block)
-        Sequel.transaction { yield } # calls the wrapped steps
+        ActiveRecord.transaction do
+          signal, (ctx, flow_options) = yield # calls the wrapped steps
+          raise ActiveRecord::Rollback unless signal.to_h[:semantic] == :success
+        end
       rescue
         [ Trailblazer::Operation::Railway.fail!, [ctx, flow_options] ]
       end
